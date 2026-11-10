@@ -13,7 +13,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-The ordinal head uses the CORAL loss with **separate per-threshold weights** (Niu et al., 2016), not weight-shared CORAL.
+The ordinal head uses the CORAL loss with **separate per-threshold weights** (Niu et al., 2016).
 
 ## Data
 
