@@ -57,4 +57,4 @@ Training always uses `NASH_KWARGS` from `utils/settings.py` (`min_weight=0.1`, `
 
 ## Citation
 
-See `CITATION.cff`. Authors: Maryam S. Mirian, Atefeh Irani, Shermyn Neo, Isaac Ning Lee, Chun Kai Ling, Martin J. McKeown (2026).
+Authors: Maryam S. Mirian, Atefeh Irani, Shermyn Neo, Isaac Ning Lee, Chun Kai Ling, Martin J. McKeown (2026).
