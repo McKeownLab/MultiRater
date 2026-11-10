@@ -17,4 +17,5 @@ authors:
 version: "1.0.0"
 date-released: "2026-01-01"
 # doi: (add after the paper is assigned a DOI)
+license: MIT
 repository-code: "https://github.com/McKeownLab/MultiRater"
