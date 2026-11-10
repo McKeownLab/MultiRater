@@ -1,0 +1,10 @@
+# Pinned to the environment that produced the reported paper numbers.
+torch==2.11.0
+numpy==2.4.4
+pandas==2.3.3
+scikit-learn==1.8.0
+scipy==1.17.1
+pingouin==0.6.1
+matplotlib==3.10.8
+openpyxl==3.1.5
+lxml==6.1.0

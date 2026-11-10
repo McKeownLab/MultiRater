@@ -1,0 +1,98 @@
+{
+  "updated": "2026-11-09",
+  "config_hash": "28832163e094e59fd31c988ad65f6ee4467d97d700a39644a7566072a1ecf678",
+  "hash_definition": "SHA-256 of json.dumps(training settings, sort_keys=True) + the session-to-fold CSV, as computed and stored by scripts/nash5_panel_bar.py in results/tables/nash5_panel_bar.json",
+  "pipeline_version": "de-duplicated demographics merge (phase0_preprocessing.merge_demographics keeps the demographics row dated closest to each rating visit); five training seeds",
+  "data": {
+    "modeling_table": "data/processed/ordinal_task_rows.csv (scripts/export_ordinal_task_rows.py)",
+    "n_rows": 1559,
+    "n_sessions": 195,
+    "n_subjects": 191,
+    "n_pd": 150,
+    "n_hc": 41,
+    "min_raters_per_row": 3,
+    "task_items": "FT, OC, PS, PT x left/right (8 items)",
+    "half_point_labels": "7 of 5,734 labels are means of two attempts (utils/parsing.parse_score); one cell has range 1.5",
+    "disagreement_bands": "unanimous r = 0; adjacent 0 < r < 2; highly disputed r >= 2; extreme r >= 3"
+  },
+  "model": {
+    "architecture": "two Linear-ReLU hidden layers of 32 units, then nn.Linear(32, 4): four threshold outputs with independent weights, trained with the CORAL target encoding and loss (not weight-shared, rank-consistent CORAL); prediction = number of outputs with p > 0.5 (models/ordinal_model.py)",
+    "features": "leave-one-task-out consensus of the other seven task items, standardised on the training fold",
+    "optimizer": "Adam",
+    "n_epochs": 300,
+    "lr": 0.01,
+    "row_weights": "1 + 2.5 x inter-rater range (DISAGREEMENT_WEIGHT_SCALE = 2.5)",
+    "training_seeds": [42, 43, 44, 45, 46],
+    "seed_mechanism": "scripts/dedup_multiseed.py and scripts/dedup_triples_multiseed.py pass seed= to every utils/nash_training fit; DEFAULT_SEED = 42 applies only when no seed is passed"
+  },
+  "nash": {
+    "solver": "utils/nash_solver.solve_nash_weights: truncated projected-gradient ascent on sum(alpha * log gamma) over the simplex, Frank-Wolfe step sizes 2/(k+2), <= 250 iterations, stop when the L1 change < 1e-6; gamma = s - min(s) + 1, s = loss / max(EMA(loss), 1e-6), loss EMA 0.9",
+    "kwargs": {
+      "min_weight": 0.1,
+      "weight_ema": 0.8,
+      "warmup_epochs": 40
+    },
+    "kwargs_source": "utils/settings.py NASH_KWARGS, imported by scripts/comparators.py and scripts/panel_size.py",
+    "function_defaults_not_used": {
+      "min_weight": 0.08,
+      "weight_ema": 0.85,
+      "warmup_epochs": 20
+    },
+    "min_weight_application": "np.maximum(solved, 0.1) then divide by the sum",
+    "gradient_combination": "each rater's gradient normalised to unit L2 length, then combined with the smoothed weights"
+  },
+  "comparators": {
+    "consensus_mean": "single target = mean of available rater labels",
+    "multitask_uniform": "per-rater masked losses, fixed weights 1/n_active",
+    "reliability_weighted": "single target = reliability-weighted mean of available labels; weights = leave-one-rater-out quadratic kappa on the training fold, floored at 0.01 (scripts/comparators.py)"
+  },
+  "cv": {
+    "splitter": "sklearn GroupKFold, groups = subject_id, applied at session level (scripts/panel_size.fixed_fold_map)",
+    "n_splits": 5,
+    "shuffle": false,
+    "n_sessions": 195,
+    "sessions_per_fold": 39,
+    "same_folds_for": "all five-rater arms, the R1-R3 panel-size arms and the ten three-rater panels"
+  },
+  "evaluation": {
+    "metric": "mean over raters of quadratic-weighted kappa against each rater's own labels on the rows that rater scored; fold mean, then averaged over seeds",
+    "bootstrap": {
+      "n_resamples": 400,
+      "seed": 42,
+      "unit": "subject",
+      "where": "figures/fig2_results.py",
+      "estimand": "paired; same subject draws for every arm; kappa averaged over seeds within each resample; percentile 2.5 / 97.5"
+    },
+    "entropy_rho": "Spearman(predictive entropy, inter-rater range) on out-of-fold rows, per seed, averaged over seeds; difference CI from the same 400 resamples"
+  },
+  "other_seeds": {
+    "calibration_offset_bootstrap": {
+      "seed": 7,
+      "n_resamples": 400,
+      "where": "scripts/calibration_offsets.py (RNG = np.random.default_rng(7))"
+    },
+    "strata_per_rater_bootstrap": {
+      "seed": 42,
+      "n_resamples": 400,
+      "where": "scripts/dedup_strata_per_rater.py"
+    },
+    "inset_jitter_display_only": {
+      "seed": 0,
+      "where": "figures/fig2_results.py",
+      "note": "horizontal jitter only; trend lines use unjittered values"
+    }
+  },
+  "number_sources": {
+    "cohort_counts": "scripts/export_ordinal_task_rows.py",
+    "icc_and_pairwise_kappa": "phase1_descriptive.py -> results/tables/icc_by_task.csv (ICC(C,1), complete cases), pairwise_kappa_matrix.csv",
+    "disagreement_vs_demographics": "scripts/analyze_disagreement_demographics.py",
+    "calibration_offset": "scripts/calibration_offsets.py",
+    "same_cell_tests": "scripts/same_cell_sparse_vs_dense.py -> results/tables/same_cell_sparse_vs_dense.csv",
+    "sign_correlations_and_steiger": "scripts/rater_axis_weighting_insight_pd.py, scripts/steiger_amplitude_vs_slowness.py",
+    "main_comparison_and_panel_size": "scripts/dedup_multiseed.py (seeds 42-46) -> figures/fig2_results.py -> results/tables/dedup_multiseed/summary.json",
+    "nash_five_rater_bar": "scripts/nash5_panel_bar.py -> results/tables/nash5_panel_bar.json",
+    "three_rater_panels": "scripts/dedup_triples_multiseed.py -> results/tables/dedup_multiseed/triples_dedup_multiseed.csv",
+    "bonferroni_workload_panel_summary_bands": "scripts/derived_numbers.py -> results/tables/derived_numbers.json",
+    "figure_2": "figures/fig2_results.py"
+  }
+}

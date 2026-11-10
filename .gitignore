@@ -1,0 +1,44 @@
+# Local / private data — never commit
+data/
+results/
+*.xlsx
+*.xls
+*.csv
+*.docx
+*.doc
+*.pptx
+*.mp4
+*.avi
+*.mov
+*.pkl
+*.pt
+*.pth
+*.h5
+*.parquet
+
+# Keep package markers only
+!**/__init__.py
+
+# Local private mapping (initials ↔ R1–R5), if present
+RATER_LABEL_MAPPING.txt
+.local/
+.env
+.env.*
+
+# Python / tooling
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.env/
+.idea/
+.vscode/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

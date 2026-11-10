@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper."
+title: "A principled approach to reconciling interrater variability in MDS-UPDRS hand motor assessments"
+authors:
+  - family-names: Mirian
+    given-names: Maryam S.
+  - family-names: Irani
+    given-names: Atefeh
+  - family-names: Neo
+    given-names: Shermyn
+  - family-names: Lee
+    given-names: Isaac Ning
+  - family-names: Ling
+    given-names: Chun Kai
+  - family-names: McKeown
+    given-names: Martin J.
+version: "1.0.0"
+date-released: "2026-01-01"
+# doi: (add after the paper is assigned a DOI)
+repository-code: "https://github.com/McKeownLab/MultiRater"
