@@ -50,7 +50,7 @@ Place the files as follows (or set the environment variables shown):
 | Path | Override variable | Contents |
 |---|---|---|
 | `data/raw/ratings.xlsx` | `MULTI_RATER_XLSX`, `MULTI_RATER_DATA_RAW` | Rating workbook |
-| `data/external/insight_pd_signs.csv` | `MULTI_RATER_DATA_EXTERNAL` | INSIGHT-PD sign labels |
+| `data/external/insight_pd_signs.csv` | `MULTI_RATER_DATA_EXTERNAL` | INSIGHT-PD sign labels (cite Irani et al., in press) |
 | `data/processed/` | `MULTI_RATER_DATA_PROCESSED` | Created by the pipeline |
 
 ### Expected input format
