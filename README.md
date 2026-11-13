@@ -1,60 +1,129 @@
-# A principled approach to reconciling interrater variability in MDS-UPDRS hand motor assessments
+# MultiRater: reconciling interrater variability in MDS-UPDRS hand motor assessments
 
-Code accompanying the paper of the same title. Five raters score MDS-UPDRS Part III hand-motor items; the modelling pipeline trains ordinal networks under consensus, reliability-weighted, equal-weight multitask, and loss-based Nash reweighting, then compares panel sizes and calibration. Raters are labelled **R1–R5** throughout (column order on the rating sheet); R2 is the trained research rater and the others are movement-disorder neurologists.
+Code for the paper:
 
-## Install
+> Mirian MS, Irani A, Neo S, Lee IN, Ling CK, McKeown MJ. **A principled approach to reconciling interrater variability in MDS-UPDRS hand motor assessments.** (2026).
 
-Python 3.14 (the environment that produced the reported numbers). Create a virtual environment and install pinned dependencies:
+Five raters scored eight MDS-UPDRS Part III hand items (finger tapping, hand open-close, pronation-supination and postural tremor, each side) from video in 195 sessions (191 subjects). This repository contains everything used to:
+
+1. quantify inter-rater agreement and disagreement (ICC, pairwise κ, disagreement bands, calibration offsets);
+2. relate each rater's scores to automated motor-sign labels (INSIGHT-PD) with Steiger tests;
+3. train ordinal networks under four ways of combining raters (consensus mean, reliability-weighted mean, equal-weight multitask, and **Nash aggregation**) and compare them, including the three-rater vs five-rater panel analysis.
+
+The participant data are not public (see [Data](#data)). The code runs end to end once access is granted.
+
+---
+
+## Contents
+
+```
+config.py                  paths, rater and task constants
+paper_config.json          every setting and seed behind the reported numbers
+phase0_preprocessing.py    parse the rating workbook, merge demographics
+phase1_descriptive.py      ICC(C,1) and pairwise quadratic κ
+phase2_build_features.py   ratings-only feature tables
+models/ordinal_model.py    2 × 32 ReLU network + ordinal head (CORAL loss)
+utils/nash_solver.py       Nash-style weight solver
+utils/nash_training.py     training loops: consensus, equal-weight multitask, Nash
+scripts/                   one script per analysis in the paper (table below)
+figures/fig2_results.py    Figure 2 and the bootstrap summary
+```
+
+## Requirements
+
+- Python 3.14 (the version that produced the reported numbers)
+- Packages pinned in `requirements.txt`
+- CPU only; no GPU needed.
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Unix:    source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-The ordinal head uses the CORAL loss with **separate per-threshold weights** (Niu et al., 2016).
-
 ## Data
 
-The rating data are held by the Pacific Parkinson's Research Centre and are not public. Qualified researchers can request access (see the paper's Data availability statement).
+The rating data are held by the Pacific Parkinson's Research Centre (UBC) and are available to qualified researchers on request, subject to ethics approval and a data-sharing agreement (see the paper's Data availability statement). Contact: martin.mckeown@ubc.ca.
 
-Expected layout after access is granted:
+Place the files as follows (or set the environment variables shown):
 
-| Path | Contents |
-|------|----------|
-| `data/raw/ratings.xlsx` | Rating workbook (`MULTI_RATER_XLSX` or `MULTI_RATER_DATA_RAW` may override) |
-| `data/processed/` | Outputs of phase 0–2 (`camera_booth_clean*.csv`, `phase2_features/`, `ordinal_task_rows.csv`) |
-| `data/external/insight_pd_signs.csv` | INSIGHT-PD sign labels (separate method; cite **Irani et al., in press**) |
+| Path | Override variable | Contents |
+|---|---|---|
+| `data/raw/ratings.xlsx` | `MULTI_RATER_XLSX`, `MULTI_RATER_DATA_RAW` | Rating workbook |
+| `data/external/insight_pd_signs.csv` | `MULTI_RATER_DATA_EXTERNAL` | INSIGHT-PD sign labels |
+| `data/processed/` | `MULTI_RATER_DATA_PROCESSED` | Created by the pipeline |
 
-Do not commit `data/` or `results/` (see `.gitignore`).
+### Expected input format
 
-## Reproduction (run order)
+**`ratings.xlsx`, sheet `All Ratings_Adjusted`.** Two header rows, then one row per session:
 
-From the repository root, with `PYTHONPATH=.` (or `sys.path` as the scripts set):
+| Column | Content |
+|---|---|
+| A | booth ID (integer) |
+| B | visit date |
+| C onward | 48 score columns: 8 items × 6 rater columns |
 
-1. **Phase 0** — parse ratings and merge demographics (closest visit date):  
-   `python phase0_preprocessing.py`
-2. **Phase 1** — ICC / pairwise κ tables:  
-   `python phase1_descriptive.py`
-3. **Phase 2** — ratings-only feature tables:  
-   `python phase2_build_features.py`
-4. **Modelling table** — must print **1,559 rows / 195 sessions / 191 subjects**:  
-   `python scripts/export_ordinal_task_rows.py`
-5. **Multi-seed main comparison** (seeds **42–46**):  
-   `python scripts/dedup_multiseed.py . results/tables/dedup_multiseed 42 43 44 45 46`  
-   Writes `p1_dedup_seed*.csv` and `r123_dedup_seed*.csv`.
-6. **Three-rater panels** (same seeds):  
-   `python scripts/dedup_triples_multiseed.py results/tables/dedup_multiseed 42 43 44 45 46`  
-   Writes `triples_dedup_multiseed.csv`.
-7. **Figure 2 bootstrap CIs / summary**:  
-   `python figures/fig2_results.py` → `results/tables/dedup_multiseed/summary.json`
-8. **Derived brief numbers** (Bonferroni 0.0025; workload saved ≈18.6%; panel Δκ mean +0.038, range +0.020 to +0.073):  
-   `python scripts/derived_numbers.py`
-9. Optional paper scripts: `scripts/nash5_panel_bar.py`, `scripts/calibration_offsets.py`, `scripts/same_cell_sparse_vs_dense.py`, `scripts/analyze_disagreement_demographics.py`, `scripts/rater_axis_weighting_insight_pd.py`, `scripts/steiger_amplitude_vs_slowness.py`.
+Items run in the order FT-R, FT-L, OC-R, OC-L, PS-R, PS-L, PT-R, PT-L. Within each item, the rater columns are R1, R2, R3, *excluded*, R4, R5. The fourth column belongs to a rater who was not included in the analysis; it is read and then dropped. Scores are 0–4. Cells such as `"1/2 (done twice)"` are averaged (7 of 5,734 labels).
 
-Training always uses `NASH_KWARGS` from `utils/settings.py` (`min_weight=0.1`, `weight_ema=0.8`, `warmup_epochs=40`), not the looser function defaults on `train_ordinal_nash`.
+**`ratings.xlsx`, sheet `Demographics`.** One row per visit with columns `CAMERA ID`, `Date of Visit ` (note the trailing space), `Dx`, `Sex`, `Age`. Each rating session is matched to the demographics row closest in date.
+
+**`insight_pd_signs.csv`.** One row per session × item with columns `session_id`, `task`, `split`, `has_sign_prediction`, `pred_low_amplitude`, `pred_sequence_effect`, `pred_slowness`, `pred_halt_hesitation` (binary), and `y_R1` … `y_R5` (rater scores).
+
+## Reproducing the paper
+
+Run from the repository root with `PYTHONPATH=.`:
+
+```bash
+python phase0_preprocessing.py
+python phase1_descriptive.py
+python phase2_build_features.py
+python scripts/export_ordinal_task_rows.py      # must print 1,559 rows / 195 sessions / 191 subjects
+python scripts/dedup_multiseed.py . results/tables/dedup_multiseed 42 43 44 45 46
+python scripts/dedup_triples_multiseed.py results/tables/dedup_multiseed 42 43 44 45 46
+python figures/fig2_results.py
+python scripts/derived_numbers.py
+```
+
+Step 4 stops with an error if the modelling table does not match the paper, so a wrong data file is caught before any training.
+
+### Where each result comes from
+
+| Result in the paper | Script | Output |
+|---|---|---|
+| ICC(C,1) = 0.811; pairwise κ 0.77–0.92 | `phase1_descriptive.py` | `results/tables/icc_by_task.csv`, `pairwise_kappa_matrix.csv` |
+| 12.5% of observations differ by ≥ 2 points; disagreement vs demographics | `scripts/derived_numbers.py`, `scripts/analyze_disagreement_demographics.py` | `derived_numbers.json` |
+| Calibration offset (+0.22, 95% CI 0.18–0.27) | `scripts/calibration_offsets.py` | `calibration_*.csv` |
+| Sparse vs dense raters on shared cells (Wilcoxon) | `scripts/same_cell_sparse_vs_dense.py` | `same_cell_sparse_vs_dense.csv` |
+| Rater–sign correlations, Steiger tests (Fig. 1b) | `scripts/rater_axis_weighting_insight_pd.py`, `scripts/steiger_amplitude_vs_slowness.py` | `steiger_amplitude_vs_slowness.csv` |
+| Nash vs consensus / reliability / multitask (Fig. 2a) | `scripts/dedup_multiseed.py` → `figures/fig2_results.py` | `dedup_multiseed/summary.json` |
+| Three-rater vs five-rater panels (Fig. 2b) | same, plus `scripts/nash5_panel_bar.py` | `summary.json`, `nash5_panel_bar.json` |
+| All ten three-rater combinations | `scripts/dedup_triples_multiseed.py` | `triples_dedup_multiseed.csv` |
+| Entropy–disagreement correlation (Fig. 2c) | `figures/fig2_results.py` | `summary.json` |
+| Workload saved (≈19%), Bonferroni thresholds | `scripts/derived_numbers.py` | `derived_numbers.json` |
+
+Figure 1 panels a, c and d are schematics and are not generated by code.
+
+## Method notes
+
+These match the Methods section; they are listed here because they affect the numbers.
+
+- **Ordinal head.** Four threshold outputs, each with its own weights (Niu et al., 2016), trained with the CORAL loss. Rank consistency is not enforced. Prediction = number of outputs with p > 0.5.
+- **Inputs.** For each target item, the consensus scores of the other seven items. These include the same task on the opposite hand.
+- **Nash aggregation.** Per-rater losses are scaled by their own moving average; weights favour raters with the largest scaled loss; floor 0.1, then renormalised; uniform for the first 40 epochs; smoothed across epochs (0.8). Settings are in `utils/settings.py` (`NASH_KWARGS`). The function defaults in `train_ordinal_nash` are **not** the ones used.
+- **Gradients.** Both Nash and equal-weight multitask normalise each rater's gradient to unit length before combining.
+- **Rounding.** Half-point labels and consensus means are rounded to the nearest integer (`np.round`) for training and κ.
+- **Evaluation.** Five-fold cross-validation grouped by subject, identical folds for every method; five seeds (42–46); CIs from 400 subject-level bootstrap resamples, paired across methods.
+
+All settings, seeds and their source files are listed in `paper_config.json`.
+
+## Rater identities
+
+Raters are labelled R1–R5. R2 is a certified research rater; R1, R3, R4 and R5 are movement disorder neurologists.
 
 ## Citation
 
-Authors: Maryam S. Mirian, Atefeh Irani, Shermyn Neo, Isaac Ning Lee, Chun Kai Ling, Martin J. McKeown (2026).
+If you use this code, please cite the paper above. Citation metadata are in `CITATION.cff`.
+
+## License
+
+MIT. See `LICENSE`.
